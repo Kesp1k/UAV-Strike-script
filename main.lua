@@ -8,7 +8,7 @@ local lp = Players.LocalPlayer
 
 local state = { esp = false, boost = false }
 local boostSpeed = 600
-local SPEED_STEP = 25
+local SPEED_STEP = 50
 local highlights = {}
 local boxes = {}
 local originals = {}
@@ -65,8 +65,6 @@ end
 
 local ESP_SCALE = 1.5
 
--- Highlight goes on the character itself (renders reliably); the 1.5x black box
--- is drawn with a BoxHandleAdornment so it stays visible on an invisible part.
 local function ensure(inst)
 	if not inst or not inst.Parent then return end
 	if inst:FindFirstChild("IYAI_esp") then return end
@@ -288,12 +286,12 @@ add(sliderRow)
 
 add(win:separator())
 add(win:section("Hotkeys"))
-add(win:label("Q / E - drone speed down / up"))
+add(win:label("Z / X - drone speed down / up"))
 add(win:label("Right Shift - hide / show window"))
 
 for i, item in ipairs(items) do item.LayoutOrder = i end
 
--- Right Shift: collapse / expand the window
+
 UIS.InputBegan:Connect(function(input, gp)
 	if input.KeyCode == Enum.KeyCode.RightShift then
 		if win.gui and win.gui.Parent then
@@ -307,8 +305,8 @@ task.spawn(function()
 	while not closed do
 		if win.gui.Parent == nil then break end
 		if not UIS:GetFocusedTextBox() then
-			if UIS:IsKeyDown(Enum.KeyCode.E) then setSpeed(boostSpeed + SPEED_STEP) end
-			if UIS:IsKeyDown(Enum.KeyCode.Q) then setSpeed(boostSpeed - SPEED_STEP) end
+			if UIS:IsKeyDown(Enum.KeyCode.X) then setSpeed(boostSpeed + SPEED_STEP) end
+			if UIS:IsKeyDown(Enum.KeyCode.Z) then setSpeed(boostSpeed - SPEED_STEP) end
 		end
 		task.wait(0.08)
 	end
