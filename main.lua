@@ -1,4 +1,4 @@
--- UAV Strike v1
+-- UAV Strike v5
 local GUI = loadstring(readfile("iyai_data/Gui.lua"))()
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
@@ -8,7 +8,7 @@ local lp = Players.LocalPlayer
 
 local state = { esp = false, boost = false }
 local boostSpeed = 600
-local SPEED_STEP = 50
+local SPEED_STEP = 25
 local highlights = {}
 local boxes = {}
 local originals = {}
@@ -20,6 +20,39 @@ local COL_ROW   = Color3.fromRGB(50, 50, 50)
 local COL_WHITE = Color3.fromRGB(255, 255, 255)
 local COL_ESP_FILL    = Color3.fromRGB(255, 0, 0)
 local COL_ESP_OUTLINE = Color3.fromRGB(0, 0, 0)
+
+local KB_FILE = "iyai_data/uav_strike_keys.txt"
+
+local ACTIONS = {
+	{ id = "boostUp",      label = "Drone speed +",     default = Enum.KeyCode.E },
+	{ id = "boostDown",    label = "Drone speed -",     default = Enum.KeyCode.Q },
+	{ id = "toggleWindow", label = "Show / hide menu",  default = Enum.KeyCode.RightShift },
+}
+
+local keybinds = {}
+local keyButtons = {}
+for _, a in ipairs(ACTIONS) do
+	keybinds[a.id] = a.default
+end
+
+local function loadKeybinds()
+	local ok, data = pcall(readfile, KB_FILE)
+	if not ok or type(data) ~= "string" then return end
+	for id, name in data:gmatch("([%w_]+)%s*=%s*([%w_]+)") do
+		local kc = Enum.KeyCode[name]
+		if keybinds[id] and kc then keybinds[id] = kc end
+	end
+end
+
+local function saveKeybinds()
+	local lines = {}
+	for id, kc in pairs(keybinds) do
+		table.insert(lines, id .. "=" .. kc.Name)
+	end
+	pcall(writefile, KB_FILE, table.concat(lines, string.char(10)))
+end
+
+loadKeybinds()
 
 local function isMine(m)
 	local pv = m:FindFirstChild("Player")
@@ -167,7 +200,7 @@ local function restoreBoost()
 	originals = {}
 end
 
-local win = GUI.window("UAV Strike", 350, 470)
+local win = GUI.window("UAV Strike", 350, 560)
 
 local items = {}
 local function add(item) table.insert(items, item); return item end
@@ -242,7 +275,6 @@ end
 
 setFrac((600 - MIN_SPEED) / (MAX_SPEED - MIN_SPEED))
 
-
 local function setSpeed(v)
 	v = math.clamp(math.floor(v + 0.5), MIN_SPEED, MAX_SPEED)
 	setFrac((v - MIN_SPEED) / (MAX_SPEED - MIN_SPEED))
@@ -284,29 +316,114 @@ end)
 
 add(sliderRow)
 
+-- why are you looking in my script?
 add(win:separator())
 add(win:section("Hotkeys"))
-add(win:label("Z / X - drone speed down / up"))
-add(win:label("Right Shift - hide / show window"))
+add(win:label("Click a key button, then press the key you want. Esc cancels."))
+
+local COL_KEY_IDLE   = Color3.fromRGB(60, 60, 60)
+local COL_KEY_LISTEN = Color3.fromRGB(200, 150, 0)
+
+local listening = nil
+
+local function refreshKeyButton(id)
+	local btn = keyButtons[id]
+	if not btn then return end
+	if listening == id then
+		btn.Text = "press a key..."
+		btn.BackgroundColor3 = COL_KEY_LISTEN
+	else
+		btn.Text = keybinds[id] and keybinds[id].Name or "?"
+		btn.BackgroundColor3 = COL_KEY_IDLE
+	end
+end
+
+local function makeKeyRow(action)
+	local row = Instance.new("Frame")
+	row.Size = UDim2.new(1, 0, 0, 32)
+	row.BackgroundColor3 = COL_ROW
+	row.BorderSizePixel = 0
+	row.Parent = win.content
+	local rcorner = Instance.new("UICorner")
+	rcorner.CornerRadius = UDim.new(0, 6)
+	rcorner.Parent = row
+
+	local lbl = Instance.new("TextLabel")
+	lbl.Size = UDim2.new(1, -130, 1, 0)
+	lbl.Position = UDim2.new(0, 10, 0, 0)
+	lbl.BackgroundTransparency = 1
+	lbl.Text = action.label
+	lbl.TextColor3 = COL_WHITE
+	lbl.TextSize = 13
+	lbl.Font = Enum.Font.Gotham
+	lbl.TextXAlignment = Enum.TextXAlignment.Left
+	lbl.Parent = row
+
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(0, 110, 0, 22)
+	btn.Position = UDim2.new(1, -10, 0.5, 0)
+	btn.AnchorPoint = Vector2.new(1, 0.5)
+	btn.BackgroundColor3 = COL_KEY_IDLE
+	btn.BorderSizePixel = 0
+	btn.AutoButtonColor = true
+	btn.TextColor3 = COL_WHITE
+	btn.TextSize = 12
+	btn.Font = Enum.Font.Gotham
+	btn.Text = keybinds[action.id].Name
+	btn.Parent = row
+	local bcorner = Instance.new("UICorner")
+	bcorner.CornerRadius = UDim.new(0, 6)
+	bcorner.Parent = btn
+
+	keyButtons[action.id] = btn
+
+	btn.MouseButton1Click:Connect(function()
+		listening = (listening == action.id) and nil or action.id
+		for id in pairs(keyButtons) do refreshKeyButton(id) end
+	end)
+
+	return row
+end
+
+for _, action in ipairs(ACTIONS) do
+	add(makeKeyRow(action))
+end
+
+for id in pairs(keyButtons) do refreshKeyButton(id) end
 
 for i, item in ipairs(items) do item.LayoutOrder = i end
 
-
 UIS.InputBegan:Connect(function(input, gp)
-	if input.KeyCode == Enum.KeyCode.RightShift then
+	if listening then
+		if input.UserInputType == Enum.UserInputType.Keyboard then
+			local id = listening
+			if input.KeyCode == Enum.KeyCode.Escape then
+				listening = nil
+			elseif input.KeyCode ~= Enum.KeyCode.Unknown then
+				keybinds[id] = input.KeyCode
+				listening = nil
+				saveKeybinds()
+			end
+			refreshKeyButton(id)
+		end
+		return
+	end
+
+	if gp then return end
+
+	if input.KeyCode == keybinds.toggleWindow then
 		if win.gui and win.gui.Parent then
 			win.gui.Enabled = not win.gui.Enabled
 		end
 	end
 end)
 
-
 task.spawn(function()
 	while not closed do
 		if win.gui.Parent == nil then break end
-		if not UIS:GetFocusedTextBox() then
-			if UIS:IsKeyDown(Enum.KeyCode.X) then setSpeed(boostSpeed + SPEED_STEP) end
-			if UIS:IsKeyDown(Enum.KeyCode.Z) then setSpeed(boostSpeed - SPEED_STEP) end
+		if not listening and not UIS:GetFocusedTextBox() then
+			if UIS:IsKeyDown(keybinds.boostUp) then setSpeed(boostSpeed + SPEED_STEP) end
+			if UIS:IsKeyDown(keybinds.boostDown) then setSpeed(boostSpeed - SPEED_STEP) end
 		end
 		task.wait(0.08)
 	end
