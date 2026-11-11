@@ -264,7 +264,7 @@ local kc = Instance.new("UICorner")
 kc.CornerRadius = UDim.new(1, 0)
 kc.Parent = knob
 
-local MIN_SPEED, MAX_SPEED = 100, 3000
+local MIN_SPEED, MAX_SPEED = 0, 3000
 
 local function setFrac(frac)
 	frac = math.clamp(frac, 0, 1)
